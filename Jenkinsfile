@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 checkout scm
@@ -27,30 +28,35 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                    sh "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                    sh "docker push ${IMAGE_NAME}:latest"
+                    sh '''
+                        echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                        docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push ${IMAGE_NAME}:latest
+                    '''
                 }
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
-                    sh '''
-                        mkdir -p ~/.kube
-                        cp "$KUBECONFIG" ~/.kube/config
-                        chmod 600 ~/.kube/config
-                        
-                        echo "Applying Kubernetes manifests..."
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
-                        
-                        echo "Restarting deployment to pull new image..."
-                        kubectl rollout restart deployment/task2-deployment
-                        kubectl rollout status deployment/task2-deployment --timeout=180s
-                    '''
-                }
+                sh '''
+                    set -e
+
+                    export KUBECONFIG=~/.kube/config
+
+                    echo "Checking cluster connection..."
+                    kubectl get nodes
+
+                    echo "Applying Kubernetes manifests..."
+                    kubectl apply -f k8s/deployment.yaml
+                    kubectl apply -f k8s/service.yaml
+
+                    echo "Restarting deployment..."
+                    kubectl rollout restart deployment/task2-deployment
+
+                    echo "Waiting for rollout..."
+                    kubectl rollout status deployment/task2-deployment --timeout=180s
+                '''
             }
         }
     }
