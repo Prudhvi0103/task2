@@ -9,7 +9,7 @@ def sendMail(stageName, status) {
         Build: ${env.BUILD_NUMBER}
         URL: ${env.BUILD_URL}
         """,
-        to: "yourmail@gmail.com",   // 🔥 change this
+        to: "viswaakumarthy1@gmail.com",   // 🔥 change this
         attachLog: true
     )
 }
