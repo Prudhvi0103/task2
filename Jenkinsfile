@@ -2,23 +2,24 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerHub')  // Add this in Jenkins credentials
-        IMAGE_NAME = "yourdockerhubusername/task2-portfolio"
-        KUBE_CONFIG = credentials('kubeconfig')               // Kubernetes config credential
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred')
+        IMAGE_NAME = "prudhvi0103/task2-portfolio"
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'PrudhviGITHUB', url: 'https://github.com/Prudhvi0103/task2.git']])
+                checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                    sh "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                    sh """
+                        docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
+                    """
                 }
             }
         }
@@ -35,19 +36,20 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    // Write kubeconfig
-                    sh 'mkdir -p ~/.kube'
-                    sh 'echo "$KUBE_CONFIG" > ~/.kube/config'
-
-                    // Deploy using kubectl
-                    sh """
+                withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                    sh '''
+                        mkdir -p ~/.kube
+                        cp "$KUBECONFIG" ~/.kube/config
+                        chmod 600 ~/.kube/config
+                        
+                        echo "Applying Kubernetes manifests..."
                         kubectl apply -f k8s/deployment.yaml
                         kubectl apply -f k8s/service.yaml
-                    """
-                    
-                    // Optional: Restart deployment to pull new image
-                    sh "kubectl rollout restart deployment/task2-deployment"
+                        
+                        echo "Restarting deployment to pull new image..."
+                        kubectl rollout restart deployment/task2-deployment
+                        kubectl rollout status deployment/task2-deployment --timeout=180s
+                    '''
                 }
             }
         }
@@ -55,10 +57,10 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployment Successful! Image: ${IMAGE_NAME}:${BUILD_NUMBER}"
+            echo "✅ Pipeline SUCCESS! Image: prudhvi0103/task2-portfolio:${BUILD_NUMBER}"
         }
         failure {
-            echo "❌ Pipeline Failed"
+            echo "❌ Pipeline FAILED"
         }
     }
 }
