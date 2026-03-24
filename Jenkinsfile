@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred')  // Add this in Jenkins credentials
+        DOCKERHUB_CREDENTIALS = credentials('dockerHub')  // Add this in Jenkins credentials
         IMAGE_NAME = "yourdockerhubusername/task2-portfolio"
         KUBE_CONFIG = credentials('kubeconfig')               // Kubernetes config credential
     }
