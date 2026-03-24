@@ -11,7 +11,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                checkout scm
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'PrudhviGITHUB', url: 'https://github.com/Prudhvi0103/task2.git']])
             }
         }
 
