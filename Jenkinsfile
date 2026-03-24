@@ -150,7 +150,7 @@ pipeline {
                 Build Number: ${env.BUILD_NUMBER}
                 URL: ${env.BUILD_URL}
                 """,
-                to: "yourmail@gmail.com",   // 🔥 change this
+                to: "viswaakumarthy1@gmail.com",   // 🔥 change this
                 attachLog: true
             )
 
@@ -167,7 +167,7 @@ pipeline {
                 Build Number: ${env.BUILD_NUMBER}
                 Check logs: ${env.BUILD_URL}
                 """,
-                to: "yourmail@gmail.com",   // 🔥 change this
+                to: "viswaakumarthy1@gmail.com",   // 🔥 change this
                 attachLog: true
             )
 
