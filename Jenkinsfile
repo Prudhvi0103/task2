@@ -9,7 +9,7 @@ def sendMail(stageName, status) {
         Build: ${env.BUILD_NUMBER}
         URL: ${env.BUILD_URL}
         """,
-        to: "yourmail@gmail.com",
+        to: "yourmail@gmail.com",   // 🔥 change this
         attachLog: true
     )
 }
@@ -115,13 +115,13 @@ pipeline {
             }
         }
 
-        // 🔥 MAIL ADDED HERE
+        // 🔥 Verify + Mail
         stage('Verify Deployment') {
             steps {
                 script {
                     try {
                         sh '''
-                            kubectl rollout status deployment/task2-deployment || true
+                            kubectl rollout status deployment/task2-deployment
                             kubectl get pods -o wide
                             kubectl get svc
                         '''
@@ -138,11 +138,39 @@ pipeline {
         }
     }
 
+    // 🔥 FINAL MAIL HERE
     post {
         success {
+            emailext(
+                subject: "✅ BUILD SUCCESS: ${env.JOB_NAME}",
+                body: """
+                🎉 Your pipeline completed SUCCESSFULLY
+
+                Job Name: ${env.JOB_NAME}
+                Build Number: ${env.BUILD_NUMBER}
+                URL: ${env.BUILD_URL}
+                """,
+                to: "yourmail@gmail.com",   // 🔥 change this
+                attachLog: true
+            )
+
             echo "✅ SUCCESS: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
         }
+
         failure {
+            emailext(
+                subject: "❌ BUILD FAILED: ${env.JOB_NAME}",
+                body: """
+                ❌ Pipeline FAILED
+
+                Job Name: ${env.JOB_NAME}
+                Build Number: ${env.BUILD_NUMBER}
+                Check logs: ${env.BUILD_URL}
+                """,
+                to: "yourmail@gmail.com",   // 🔥 change this
+                attachLog: true
+            )
+
             echo "❌ FAILED"
         }
     }
