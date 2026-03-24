@@ -1,3 +1,19 @@
+def sendMail(stageName, status) {
+    emailext(
+        subject: "🚀 ${stageName} - ${status}",
+        body: """
+        Stage: ${stageName}
+        Status: ${status}
+
+        Job: ${env.JOB_NAME}
+        Build: ${env.BUILD_NUMBER}
+        URL: ${env.BUILD_URL}
+        """,
+        to: "yourmail@gmail.com",
+        attachLog: true
+    )
+}
+
 pipeline {
     agent any
 
@@ -99,13 +115,25 @@ pipeline {
             }
         }
 
+        // 🔥 MAIL ADDED HERE
         stage('Verify Deployment') {
             steps {
-                sh '''
-                    kubectl rollout status deployment/task2-deployment || true
-                    kubectl get pods -o wide
-                    kubectl get svc
-                '''
+                script {
+                    try {
+                        sh '''
+                            kubectl rollout status deployment/task2-deployment || true
+                            kubectl get pods -o wide
+                            kubectl get svc
+                        '''
+
+                        sendMail("Verify Deployment", "SUCCESS")
+
+                    } catch (err) {
+
+                        sendMail("Verify Deployment", "FAILED")
+                        throw err
+                    }
+                }
             }
         }
     }
