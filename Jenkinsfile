@@ -2,38 +2,48 @@ pipeline {
     agent any
 
     environment {
+        WORK_DIR = "/var/lib/jenkins/workspace/task2-automation"
+
         IMAGE_NAME = "task2-portfolio"
         IMAGE_TAG = "${BUILD_NUMBER}"
+
         DOCKERHUB_USER = "prudhvi0103"
         DOCKER_CREDS = "dockerHub"
 
         AWS_REGION = "ap-south-1"
         EKS_CLUSTER = "pajeero"
+
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                credentialsId: 'PrudhviGITHUB',
-                url: 'https://github.com/Prudhvi0103/task2.git'
+                dir("${WORK_DIR}") {
+                    git branch: 'main',
+                    credentialsId: 'PrudhviGITHUB',
+                    url: 'https://github.com/Prudhvi0103/task2.git'
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                sh '''
-                    docker build -t $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG .
-                    docker tag $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG $DOCKERHUB_USER/$IMAGE_NAME:latest
-                '''
+                dir("${WORK_DIR}") {
+                    sh '''
+                        docker rmi -f ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} || true
+                        docker build -t ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        docker tag ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
+                    '''
+                }
             }
         }
 
         stage('DockerHub Login') {
             steps {
                 withCredentials([usernamePassword(
-                    credentialsId: "$DOCKER_CREDS",
+                    credentialsId: "${DOCKER_CREDS}",
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
@@ -47,49 +57,45 @@ pipeline {
         stage('Push Image to DockerHub') {
             steps {
                 sh '''
-                    docker push $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG
-                    docker push $DOCKERHUB_USER/$IMAGE_NAME:latest
+                    docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USER}/${IMAGE_NAME}:latest
                 '''
             }
         }
 
-        // 🔥 Update image in deployment.yml
         stage('Update K8s Image') {
             steps {
-                sh '''
-                    sed -i "s|image:.*|image: $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG|" k8s/deployment.yaml
-                '''
-            }
-        }
-
-        // 🔥 AWS CONNECT (NO PLUGIN REQUIRED)
-        stage('Configure EKS Access') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'aws-creds',
-                    usernameVariable: 'AWS_ACCESS_KEY_ID',
-                    passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                )]) {
+                dir("${WORK_DIR}") {
                     sh '''
-                        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-                        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-                        export AWS_DEFAULT_REGION=$AWS_REGION
-
-                        echo "Connecting to EKS..."
-                        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
-
-                        kubectl get nodes
+                        sed -i "s|image:.*|image: $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG|" k8s/deployment.yaml
                     '''
                 }
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Configure EKS Access') {
             steps {
                 sh '''
-                    kubectl apply -f k8s/deployment.yaml
-                    kubectl apply -f k8s/service.yaml
+                    export PATH=$PATH:/usr/local/bin
+
+                    echo "Connecting to EKS cluster..."
+
+                    aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER
+
+                    kubectl config current-context
+                    kubectl get nodes
                 '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                dir("${WORK_DIR}") {
+                    sh '''
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply -f k8s/service.yaml
+                    '''
+                }
             }
         }
 
@@ -106,7 +112,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ SUCCESS: $DOCKERHUB_USER/$IMAGE_NAME:$IMAGE_TAG"
+            echo "✅ SUCCESS: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
         }
         failure {
             echo "❌ FAILED"
