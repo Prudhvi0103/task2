@@ -2,14 +2,15 @@ def sendMail(stageName, status) {
     emailext(
         subject: "🚀 ${stageName} - ${status}",
         body: """
-        Stage: ${stageName}
-        Status: ${status}
+        <h3>Stage: ${stageName}</h3>
+        <p>Status: <b>${status}</b></p>
 
-        Job: ${env.JOB_NAME}
-        Build: ${env.BUILD_NUMBER}
-        URL: ${env.BUILD_URL}
+        <p><b>Job:</b> ${env.JOB_NAME}</p>
+        <p><b>Build:</b> ${env.BUILD_NUMBER}</p>
+        <p><b>URL:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
         """,
-        to: "viswaakumarthy1@gmail.com",   // 🔥 change this
+        mimeType: 'text/html',
+        to: "viswaakumarthy1@gmail.com",
         attachLog: true
     )
 }
@@ -93,7 +94,6 @@ pipeline {
             steps {
                 sh '''
                     export PATH=$PATH:/usr/local/bin
-
                     echo "Connecting to EKS cluster..."
 
                     aws eks --region $AWS_REGION update-kubeconfig --name $EKS_CLUSTER
@@ -115,7 +115,6 @@ pipeline {
             }
         }
 
-        // 🔥 Verify + Mail
         stage('Verify Deployment') {
             steps {
                 script {
@@ -125,53 +124,53 @@ pipeline {
                             kubectl get pods -o wide
                             kubectl get svc
                         '''
-
                         sendMail("Verify Deployment", "SUCCESS")
 
                     } catch (err) {
-
                         sendMail("Verify Deployment", "FAILED")
-                        throw err
+                        error "Deployment failed"
                     }
                 }
             }
         }
     }
 
-    // 🔥 FINAL MAIL HERE
     post {
+
         success {
             emailext(
                 subject: "✅ BUILD SUCCESS: ${env.JOB_NAME}",
                 body: """
-                🎉 Your pipeline completed SUCCESSFULLY
+                <h2>🎉 Pipeline SUCCESS</h2>
 
-                Job Name: ${env.JOB_NAME}
-                Build Number: ${env.BUILD_NUMBER}
-                URL: ${env.BUILD_URL}
+                <p><b>Job:</b> ${env.JOB_NAME}</p>
+                <p><b>Build:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>URL:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
                 """,
-                to: "viswaakumarthy1@gmail.com",   // 🔥 change this
+                mimeType: 'text/html',
+                to: "viswaakumarthy1@gmail.com",
                 attachLog: true
             )
-
-            echo "✅ SUCCESS: ${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
         }
 
         failure {
             emailext(
                 subject: "❌ BUILD FAILED: ${env.JOB_NAME}",
                 body: """
-                ❌ Pipeline FAILED
+                <h2>❌ Pipeline FAILED</h2>
 
-                Job Name: ${env.JOB_NAME}
-                Build Number: ${env.BUILD_NUMBER}
-                Check logs: ${env.BUILD_URL}
+                <p><b>Job:</b> ${env.JOB_NAME}</p>
+                <p><b>Build:</b> ${env.BUILD_NUMBER}</p>
+                <p><b>Check Logs:</b> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
                 """,
-                to: "viswaakumarthy1@gmail.com",   // 🔥 change this
+                mimeType: 'text/html',
+                to: "viswaakumarthy1@gmail.com",
                 attachLog: true
             )
+        }
 
-            echo "❌ FAILED"
+        always {
+            echo "📧 Mail step executed"
         }
     }
 }
